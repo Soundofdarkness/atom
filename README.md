@@ -33,7 +33,7 @@ Atom will automatically update when a new release is available.
 
 ### Windows
 
-Download the latest [Atom installer](https://github.com/atom/atom/releases/latest).  AtomSetup.exe is 32-bit, AtomSetup-x64.exe for 64-bit systems.
+Download the latest [Atom installer](https://github.com/atom/atom/releases/latest). `AtomSetup.exe` is 32-bit. For 64-bit systems, download `AtomSetup-x64.exe`.
 
 Atom will automatically update when a new release is available.
 
@@ -46,7 +46,7 @@ Using [Chocolatey](https://chocolatey.org)? Run `cinst Atom` to install the late
 
 Atom is only available for 64-bit Linux systems.
 
-Configure your distribution's package manager to install and update Atom by following the [Linux installation instructions](http://flight-manual.atom.io/getting-started/sections/installing-atom/#platform-linux) in the Flight Manual.  You will also find instructions on how to install Atom's official Linux packages without using a package repository, though you will not get automatic updates after installing Atom this way.
+Configure your distribution's package manager to install and update Atom by following the [Linux installation instructions](https://flight-manual.atom.io/getting-started/sections/installing-atom/#platform-linux) in the Flight Manual.  You will also find instructions on how to install Atom's official Linux packages without using a package repository, though you will not get automatic updates after installing Atom this way.
 
 ### Archive extraction
 
@@ -69,6 +69,11 @@ repeat these steps to upgrade to future releases.
 * [Linux](https://flight-manual.atom.io/hacking-atom/sections/hacking-on-atom-core/#platform-linux)
 * [macOS](https://flight-manual.atom.io/hacking-atom/sections/hacking-on-atom-core/#platform-mac)
 * [Windows](https://flight-manual.atom.io/hacking-atom/sections/hacking-on-atom-core/#platform-windows)
+
+## Discussion
+
+* Discuss Atom on our [forums](https://discuss.atom.io/)
+* Chat about Atom on our Slack team -- [instructions for joining](https://discuss.atom.io/t/join-us-on-slack/16638?source_topic_id=25406)
 
 ## License
 

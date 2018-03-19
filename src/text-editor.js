@@ -11,6 +11,7 @@ const Cursor = require('./cursor')
 const Selection = require('./selection')
 const NullGrammar = require('./null-grammar')
 const TextMateLanguageMode = require('./text-mate-language-mode')
+const ScopeDescriptor = require('./scope-descriptor')
 
 const TextMateScopeSelector = require('first-mate').ScopeSelector
 const GutterContainer = require('./gutter-container')
@@ -1330,15 +1331,24 @@ class TextEditor {
   insertText (text, options = {}) {
     if (!this.emitWillInsertTextEvent(text)) return false
 
+    let groupLastChanges = false
+    if (options.undo === 'skip') {
+      options = Object.assign({}, options)
+      delete options.undo
+      groupLastChanges = true
+    }
+
     const groupingInterval = options.groupUndo ? this.undoGroupingInterval : 0
     if (options.autoIndentNewline == null) options.autoIndentNewline = this.shouldAutoIndent()
     if (options.autoDecreaseIndent == null) options.autoDecreaseIndent = this.shouldAutoIndent()
-    return this.mutateSelectedText(selection => {
+    const result = this.mutateSelectedText(selection => {
       const range = selection.insertText(text, options)
       const didInsertEvent = {text, range}
       this.emitter.emit('did-insert-text', didInsertEvent)
       return range
     }, groupingInterval)
+    if (groupLastChanges) this.buffer.groupLastChanges()
+    return result
   }
 
   // Essential: For each selection, replace the selected text with a newline.
@@ -2664,7 +2674,7 @@ class TextEditor {
     return this.cursors.slice()
   }
 
-  // Extended: Get all {Cursors}s, ordered by their position in the buffer
+  // Extended: Get all {Cursor}s, ordered by their position in the buffer
   // instead of the order in which they were added.
   //
   // Returns an {Array} of {Selection}s.
@@ -3072,6 +3082,36 @@ class TextEditor {
   // paragraph while preserving the selection's tail position.
   selectToBeginningOfPreviousParagraph () {
     return this.expandSelectionsBackward(selection => selection.selectToBeginningOfPreviousParagraph())
+  }
+
+  // Extended: For each selection, select the syntax node that contains
+  // that selection.
+  selectLargerSyntaxNode () {
+    const languageMode = this.buffer.getLanguageMode()
+    if (!languageMode.getRangeForSyntaxNodeContainingRange) return
+
+    this.expandSelectionsForward(selection => {
+      const currentRange = selection.getBufferRange()
+      const newRange = languageMode.getRangeForSyntaxNodeContainingRange(currentRange)
+      if (newRange) {
+        if (!selection._rangeStack) selection._rangeStack = []
+        selection._rangeStack.push(currentRange)
+        selection.setBufferRange(newRange)
+      }
+    })
+  }
+
+  // Extended: Undo the effect a preceding call to {::selectLargerSyntaxNode}.
+  selectSmallerSyntaxNode () {
+    this.expandSelectionsForward(selection => {
+      if (selection._rangeStack) {
+        const lastRange = selection._rangeStack[selection._rangeStack.length - 1]
+        if (lastRange && selection.getBufferRange().containsRange(lastRange)) {
+          selection._rangeStack.length--
+          selection.setBufferRange(lastRange)
+        }
+      }
+    })
   }
 
   // Extended: Select the range of the given marker if it is valid.
@@ -3616,7 +3656,10 @@ class TextEditor {
   //
   // Returns a {ScopeDescriptor}.
   scopeDescriptorForBufferPosition (bufferPosition) {
-    return this.buffer.getLanguageMode().scopeDescriptorForPosition(bufferPosition)
+    const languageMode = this.buffer.getLanguageMode()
+    return languageMode.scopeDescriptorForPosition
+      ? languageMode.scopeDescriptorForPosition(bufferPosition)
+      : new ScopeDescriptor({scopes: ['text']})
   }
 
   // Extended: Get the range in buffer coordinates of all tokens surrounding the
@@ -3860,7 +3903,7 @@ class TextEditor {
 
   // Extended: Fold all foldable lines at the given indent level.
   //
-  // * `level` A {Number}.
+  // * `level` A {Number} starting at 0.
   foldAllAtIndentLevel (level) {
     const languageMode = this.buffer.getLanguageMode()
     const foldableRanges = (

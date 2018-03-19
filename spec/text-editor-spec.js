@@ -2376,6 +2376,19 @@ describe('TextEditor', () => {
           ])
         })
       })
+
+      it('does not create a new selection if it would be fully contained within another selection', () => {
+        editor.setText('abc\ndef\nghi\njkl\nmno')
+        editor.setCursorBufferPosition([0, 1])
+
+        let addedSelectionCount = 0
+        editor.onDidAddSelection(() => { addedSelectionCount++ })
+
+        editor.addSelectionBelow()
+        editor.addSelectionBelow()
+        editor.addSelectionBelow()
+        expect(addedSelectionCount).toBe(3)
+      })
     })
 
     describe('.addSelectionAbove()', () => {
@@ -2497,6 +2510,19 @@ describe('TextEditor', () => {
             [[9, 0], [9, 0]]
           ])
         })
+      })
+
+      it('does not create a new selection if it would be fully contained within another selection', () => {
+        editor.setText('abc\ndef\nghi\njkl\nmno')
+        editor.setCursorBufferPosition([4, 1])
+
+        let addedSelectionCount = 0
+        editor.onDidAddSelection(() => { addedSelectionCount++ })
+
+        editor.addSelectionAbove()
+        editor.addSelectionAbove()
+        editor.addSelectionAbove()
+        expect(addedSelectionCount).toBe(3)
       })
     })
 
@@ -3507,13 +3533,16 @@ describe('TextEditor', () => {
       })
 
       describe("when the undo option is set to 'skip'", () => {
-        beforeEach(() => editor.setSelectedBufferRange([[1, 2], [1, 2]]))
-
-        it('does not undo the skipped operation', () => {
-          let range = editor.insertText('x')
-          range = editor.insertText('y', {undo: 'skip'})
+        it('groups the change with the previous change for purposes of undo and redo', () => {
+          editor.setSelectedBufferRanges([
+            [[0, 0], [0, 0]],
+            [[1, 0], [1, 0]]
+          ])
+          editor.insertText('x')
+          editor.insertText('y', {undo: 'skip'})
           editor.undo()
-          expect(buffer.lineForRow(1)).toBe('  yvar sort = function(items) {')
+          expect(buffer.lineForRow(0)).toBe('var quicksort = function () {')
+          expect(buffer.lineForRow(1)).toBe('  var sort = function(items) {')
         })
       })
     })
@@ -5398,6 +5427,34 @@ describe('TextEditor', () => {
       expect(buffer.getLineCount()).toBe(count - 2)
     })
 
+    it("restores cursor position for multiple cursors", () => {
+      const line = '0123456789'.repeat(8)
+      editor.setText((line + '\n').repeat(5))
+      editor.setCursorScreenPosition([0, 5])
+      editor.addCursorAtScreenPosition([2, 8])
+      editor.deleteLine()
+
+      const cursors = editor.getCursors()
+      expect(cursors.length).toBe(2)
+      expect(cursors[0].getScreenPosition()).toEqual([0, 5])
+      expect(cursors[1].getScreenPosition()).toEqual([1, 8])
+    })
+
+    it("restores cursor position for multiple selections", () => {
+      const line = '0123456789'.repeat(8)
+      editor.setText((line + '\n').repeat(5))
+      editor.setSelectedBufferRanges([
+       [[0, 5], [0, 8]],
+       [[2, 4], [2, 15]]
+      ])
+      editor.deleteLine()
+
+      const cursors = editor.getCursors()
+      expect(cursors.length).toBe(2)
+      expect(cursors[0].getScreenPosition()).toEqual([0, 5])
+      expect(cursors[1].getScreenPosition()).toEqual([1, 4])
+    })
+
     it('deletes a line only once when multiple selections are on the same line', () => {
       const line1 = buffer.lineForRow(1)
       const count = buffer.getLineCount()
@@ -6688,6 +6745,14 @@ describe('TextEditor', () => {
 
   afterEach(() => {
     editor.destroy()
+  })
+
+  describe('.scopeDescriptorForBufferPosition(position)', () => {
+    it('returns a default scope descriptor when no language mode is assigned', () => {
+      editor = new TextEditor({buffer: new TextBuffer()})
+      const scopeDescriptor = editor.scopeDescriptorForBufferPosition([0, 0])
+      expect(scopeDescriptor.getScopesArray()).toEqual(['text'])
+    })
   })
 
   describe('.shouldPromptToSave()', () => {
